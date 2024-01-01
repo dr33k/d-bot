@@ -34,7 +34,7 @@ class Bot:
 
         if not re.match(r'^to.*$'):
             raise ValueError(
-                'The function of the bot must start with the word \'to\' in order to better convey it\'s functio to the user')
+                'The function of the bot must start with the word \'to\' in order to better convey it\'s function to the user')
 
         self._function = function
 
@@ -65,10 +65,38 @@ class Bot:
     def __match_question(self, user_question: str) -> list[str]:
         """Returns the closest matching question object from the knowledge base"""
 
-        words = self.__clean_input(user_question)
+        word = ' '.join(self.__clean_input(user_question))
         possibilities = self._questions_kb.keys()
 
-        return get_close_matches(words, possibilities, n=1)
+        return get_close_matches(word, possibilities, n=1, cutoff=0.6)
 
     def __answer(self, question: str) -> str:
         return self._questions_kb[question]['answer']
+
+    def converse(self):
+        print(f'{self._bot_name}: Hello, I am {self._bot_name}{'and I was created' + self._function if self._function else ''}. How may I help you today? Type \'q\' to quit')
+
+        while True:
+            user_input = input('You: ')
+
+            if user_input == 'q':
+                print(f'{self._bot_name}: Bye bye :)')
+                break
+
+            matches = self.__match_question(user_input)
+
+            if matches:
+                answer = self.__answer(matches[0])
+                print(f'{self._bot_name}: {answer}')
+                continue
+
+            if self.training_mode:
+                print(f'{self._bot_name}: Input unrecognized, please train by entering appropriate response')
+                new_answer = input('You: ')
+                self.append_kb(user_input, new_answer)
+                print(f'{self._bot_name}: Updated kb, moving on...')
+                continue
+
+            else:
+                print(f'{self._bot_name}: I didn\'t quite get that, could you rephrase ?')
+                continue

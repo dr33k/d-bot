@@ -1,2 +1,5 @@
+from models.bot import Bot
+
 if __name__ == '__main__':
-    print('name')
+    bot = Bot()
+    bot.converse()
