@@ -2,14 +2,35 @@ import json, re
 from difflib import get_close_matches
 
 class Bot:
+    """Entity representing a chatbot to be trained in a specific domain"""
 
-    def __init__(self, training_mode:bool=True):
+    def __init__(self, name='Dbot', training_mode:bool=True):
         """Creates a trainable bot by default with training_mode=True
             training_mode=False creates a Bot for the production environment
         """
         with open('json/knowledge_base.json', 'r') as file:
-            self.knowledge_base: dict = json.load(file)
-            self.training_mode: bool = training_mode
+            self._knowledge_base: dict = json.load(file)
+            self._training_mode: bool = training_mode
+            self._bot_name: str = name
+            self._function: str = ''
+
+    @property
+    def bot_name(self): return self._bot_name
+
+    @bot_name.setter
+    def bot_name(self, name: str):
+        self._bot_name = name
+
+    @property
+    def function(self): return self._function
+    @function.setter
+    def set_function(self, function: str):
+        function = function.lower()
+
+        if not re.match(r'^to.*$'):
+            raise ValueError('The function of the bot must start with the word \'to\' in order to better convey it\'s functio to the user')
+
+        self.__function = function
 
     def append_kb(self):
         """Appends new data to the knowledge base"""
@@ -23,11 +44,14 @@ class Bot:
         words: list = re.split(r'\s+|[.,;:\-/]\s*]', user_question.lower())
         return words
 
-    def match_question(self, user_question: str):
+    def __match_question(self, user_question: str) -> list[str]:
         """Returns the closest matching question object from the knowledge base"""
 
         words = self.__clean_input(user_question)
-        possibilities = [q['question'] for q in self.knowledge_base['questions']]
+        possibilities = self.knowledge_base['questions'].keys()
 
         return get_close_matches(words, possibilities, n=1)
+
+    def __answer(self, question:str) -> str:
+        return self.knowledge_base['questions'][question]['answer']
 
