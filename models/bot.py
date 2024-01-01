@@ -4,11 +4,11 @@ from difflib import get_close_matches
 class Bot:
     """Entity representing a chatbot to be trained in a specific domain"""
 
-    def __init__(self, name='Dbot', training_mode:bool=True):
+    def __init__(self, kb_path='json/knowledge_base.json', name='Dbot', training_mode:bool=True):
         """Creates a trainable bot by default with training_mode=True
             training_mode=False creates a Bot for the production environment
         """
-        with open('json/knowledge_base.json', 'r') as file:
+        with open(kb_path, 'r') as file:
             self._knowledge_base: dict = json.load(file)
             self._training_mode: bool = training_mode
             self._bot_name: str = name
@@ -24,13 +24,20 @@ class Bot:
     @property
     def function(self): return self._function
     @function.setter
-    def set_function(self, function: str):
+    def function(self, function: str):
         function = function.lower()
 
         if not re.match(r'^to.*$'):
-            raise ValueError('The function of the bot must start with the word \'to\' in order to better convey it\'s functio to the user')
+            raise ValueError(
+                'The function of the bot must start with the word \'to\' in order to better convey it\'s functio to the user')
 
-        self.__function = function
+        self._function = function
+
+    @property
+    def training_mode(self): return self._training_mode
+    @training_mode.setter
+    def training_mode(self, tm: bool):
+        self.training_mode = tm
 
     def append_kb(self):
         """Appends new data to the knowledge base"""
