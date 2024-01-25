@@ -1,102 +1,119 @@
-import json, re
-from constants import ANSWER
+import re
+from constants import QUESTION, ANSWER
 from difflib import get_close_matches
+from db.driver import kb
 
 
 class Bot:
     """Entity representing a chatbot to be trained in a specific domain"""
 
-    def __init__(self, kb_path='json/questions_kb.json', name='Dbot', training_mode: bool = True):
+    def __init__(self, name='Dbot', training_mode: bool = True, kb=kb):
         """Creates a trainable bot by default with training_mode=True
             training_mode=False creates a Bot for the production environment
         """
-        with open(kb_path, 'r') as file:
-            self._questions_kb: dict = json.load(file)
-            self._kb_path: str = kb_path
-
-        self._training_mode: bool = training_mode
-        self._bot_name: str = name
-        self._function: str = ''
+        self.__dialogues = kb['dialogues'] #Dialogues collection
+        
+        self.__training_mode: bool = training_mode
+        self.__bot_name: str = name
+        self.__function: str = ''
 
     @property
-    def bot_name(self): return self._bot_name
+    def dialogues(self): return self.__dialogues
+
+    @property
+    def bot_name(self): return self.__bot_name
 
     @bot_name.setter
     def bot_name(self, name: str):
-        self._bot_name = name
+        self.__bot_name = name
 
     @property
-    def function(self): return self._function
+    def bot__function(self): return self.__function
 
-    @function.setter
-    def function(self, function: str):
+    @bot__function.setter
+    def bot__function(self, function: str):
         function = function.lower()
 
-        if not re.match(r'^to.*$'):
-            raise ValueError(
-                'The function of the bot must start with the word \'to\' in order to better convey it\'s function to the user')
-
-        self._function = function
+        assert re.search('^to', function) is not None, '''
+        The function of the bot must start with the word \'to\' in order to better convey it\'s function to the user
+        '''
+        self.__function = function
 
     @property
-    def training_mode(self): return self._training_mode
+    def training_mode(self): return self.__training_mode
 
     @training_mode.setter
     def training_mode(self, tm: bool):
-        self.training_mode = tm
+        self.__training_mode = tm
 
-    def append_kb(self, question: str, answer: str):
-        """Appends new data to the knowledge base"""
 
-        assert bool(question), 'No question to add to knowledge base'
+    def update_kb(self, q: str, answer: str):
+        """Adds new data to the knowledge base"""
+
+        assert bool(q), 'No question to add to knowledge base'
         assert bool(answer), 'No answer to add to knowledge base'
 
-        self._questions_kb[question] = {ANSWER: answer}
+        self.__dialogues.insert_one({QUESTION: q, ANSWER: answer})
 
-        with open(self._kb_path, 'w') as file:
-            json.dump(self._questions_kb, file)
 
     def __clean_input(self, user_question: str) -> list[str]:
         """Sterilizes and splits input strings into words for matching"""
 
-        words: list = re.split(r'\s+|[.,;:\-/]\s*]', user_question.lower())
+        words = re.split(r'\s+|[.,;:\-/]\s*]', user_question.lower())
         return words
 
     def __match_question(self, user_question: str) -> list[str]:
         """Returns the closest matching question object from the knowledge base"""
 
-        word = ' '.join(self.__clean_input(user_question))
-        possibilities = self._questions_kb.keys()
+        user_question = ' '.join(self.__clean_input(user_question))
+        dialogue_object_list = self.__dialogues.find({}, {QUESTION: 1, '_id': 0}) # Possible dialogues to match in the kb
 
-        return get_close_matches(word, possibilities, n=1, cutoff=0.6)
+        possibilities = [dialogue[QUESTION] for dialogue in dialogue_object_list]
+
+        return get_close_matches(user_question, possibilities, n=1, cutoff=0.6)
 
     def __answer(self, question: str) -> str:
-        return self._questions_kb[question]['answer']
+        dialogue: list = self.__dialogues.find_one({QUESTION: question}, {'_id': 0, ANSWER: 1}) # List of one object
+        return dialogue[ANSWER]
+
+    def peep(self):
+        for x in self.__dialogues.find():
+            print(x)
 
     def converse(self):
-        print(f'{self._bot_name}: Hello, I am {self._bot_name}{'and I was created' + self._function if self._function else ''}. How may I help you today? Type \'q\' to quit')
+        print(f'''
+        {self.__bot_name}: Hello, I am {self.__bot_name}.
+        {' I was created ' + self.__function if self.__function else ''}
+        How may I help you today? Enter \'q\' to quit
+         ''')
 
         while True:
-            user_input = input('You: ')
+            try:
+                user_input = input('You: ')
 
-            if user_input == 'q':
-                print(f'{self._bot_name}: Bye bye :)')
-                break
+                if user_input == 'q':
+                    self.__dialogues.delete_many({})
+                    break
 
-            matches = self.__match_question(user_input)
+                matches = self.__match_question(user_input)
 
-            if matches:
-                answer = self.__answer(matches[0])
-                print(f'{self._bot_name}: {answer}')
-                continue
+                if matches:
+                    answer = self.__answer(matches[0])
+                    print(f'{self.__bot_name}: {answer}')
+                    self.peep()
+                    continue
 
-            if self.training_mode:
-                print(f'{self._bot_name}: Input unrecognized, please train by entering appropriate response')
-                new_answer = input('You: ')
-                self.append_kb(user_input, new_answer)
-                print(f'{self._bot_name}: Updated kb, moving on...')
-                continue
+                if self.training_mode:
+                    print(f'{self.__bot_name}: Input unrecognized, please train by entering appropriate response')
+                    new_answer = input('You: ')
+                    self.update_kb(user_input, new_answer)
+                    print(f'{self.__bot_name}: Updated kb, moving on...')
 
-            else:
-                print(f'{self._bot_name}: I didn\'t quite get that, could you rephrase ?')
-                continue
+                else:
+                    print(f'{self.__bot_name}: I didn\'t quite get that, could you rephrase ?')
+
+                self.peep()
+
+            except Exception as ex: print(ex)
+
+        print(f'{self.__bot_name}: Bye bye :)')
