@@ -84,7 +84,7 @@ class Bot:
         print(f'''
         {self.__bot_name}: Hello, I am {self.__bot_name}.
         {' I was created ' + self.__function if self.__function else ''}
-        How may I help you today? Enter \'q\' to quit
+        How may I help you today? Enter \'q\' to quit at any time
          ''')
 
         while True:
@@ -100,19 +100,16 @@ class Bot:
                 if matches:
                     answer = self.__answer(matches[0])
                     print(f'{self.__bot_name}: {answer}')
-                    self.peep()
                     continue
 
                 if self.training_mode:
-                    print(f'{self.__bot_name}: Input unrecognized, please train by entering appropriate response')
+                    print(f'{self.__bot_name}: Input unrecognized, please train by entering human-like response for input \'{user_input}\'')
                     new_answer = input('You: ')
                     self.update_kb(user_input, new_answer)
-                    print(f'{self.__bot_name}: Updated kb, moving on...')
+                    print(f'{self.__bot_name}: Updated knowledge base, moving on...')
 
                 else:
                     print(f'{self.__bot_name}: I didn\'t quite get that, could you rephrase ?')
-
-                self.peep()
 
             except Exception as ex: print(ex)
 
